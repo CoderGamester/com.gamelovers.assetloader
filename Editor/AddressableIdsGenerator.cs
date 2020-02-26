@@ -76,7 +76,7 @@ namespace GameLoversEditor.AssetLoader
 			stringBuilder.AppendLine("");
 			stringBuilder.AppendLine("using System.Collections.Generic;");
 			stringBuilder.AppendLine("using System.Collections.ObjectModel;");
-			stringBuilder.AppendLine("using GameLovers.AddressableIdsScriptGenerator;");
+			stringBuilder.AppendLine("using GameLovers.AssetLoader;");
 			stringBuilder.AppendLine("");
 			stringBuilder.AppendLine("// ReSharper disable InconsistentNaming");
 			stringBuilder.AppendLine("// ReSharper disable once CheckNamespace");
@@ -210,9 +210,12 @@ namespace GameLoversEditor.AssetLoader
 
 		private static string GenerateAddressableConfig(AddressableAssetEntry addressableAssetEntry, int index)
 		{
+			var asseType = AssetDatabase.GetMainAssetTypeAtPath(addressableAssetEntry.AssetPath);
+
+			asseType = asseType == typeof(UnityEditor.SceneAsset) ? typeof(UnityEngine.SceneManagement.Scene) : asseType;
+			
 			return $"new {nameof(AddressableConfig)}({index.ToString()}, \"{addressableAssetEntry.address}\", \"{addressableAssetEntry.AssetPath}\", " +
-			       $"typeof({AssetDatabase.GetMainAssetTypeAtPath(addressableAssetEntry.AssetPath)}), " +
-			       $"new [] {{{GenerateLabels(new List<string>(addressableAssetEntry.labels))}}})";
+			       $"typeof({asseType}), new [] {{{GenerateLabels(new List<string>(addressableAssetEntry.labels))}}})";
 		}
 
 		private static void ProcessData(IReadOnlyList<AddressableAssetEntry> assetList,

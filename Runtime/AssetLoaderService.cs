@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceProviders;
+using UnityEngine.SceneManagement;
 
 // ReSharper disable CheckNamespace
 
@@ -17,8 +19,8 @@ namespace GameLovers.AssetLoader
 	public static class AssetLoaderService
 	{
 		/// <summary>
-		/// Helper method to interpolate over a list of the given <paramref name="tasks"/>
-		/// Returns the first completed task and moves to the next until all tasks are completed
+		/// Helper method to interpolate over a list of the given <paramref name="tasks"/>.
+		/// Returns the first completed task and moves to the next until all tasks are completed.
 		/// </summary>
 		/// <remarks>
 		/// Based on the implementation of a .Net engineer <seealso cref="https://devblogs.microsoft.com/pfxteam/processing-tasks-as-they-complete/"/>
@@ -50,31 +52,13 @@ namespace GameLovers.AssetLoader
 		}
 
 		/// <summary>
-		/// Loads any asset of the given <typeparamref name="T"/> in the given <paramref name="path"/>
-		/// To help the execution of this method is recommended to request the asset path from an <seealso cref="AddressableConfig"/>
+		/// Loads any scene in the given <paramref name="path"/> with the given parameter configuration.
+		/// To help the execution of this method is recommended to request the asset path from an <seealso cref="AddressableConfig"/>.
 		/// This method can be controlled in an async method and returns the asset loaded
 		/// </summary>
-		public static async Task<T> LoadAssetAsync<T>(string path)
+		public static async Task<SceneInstance> LoadSceneAsync(string path, LoadSceneMode loadMode = LoadSceneMode.Single, bool activateOnLoad = true)
 		{
-			var operation = Addressables.LoadAssetAsync<T>(path);
-
-			await operation.Task;
-
-			if (operation.Status != AsyncOperationStatus.Succeeded)
-			{
-				throw operation.OperationException;
-			}
-			return operation.Result;
-		}
-
-		/// <summary>
-		/// Loads and instantiates the prefab in the given <paramref name="path"/>
-		/// To help the execution of this method is recommended to request the asset path from an <seealso cref="AddressableConfig"/>
-		/// This method can be controlled in an async method and returns the prefab instantiated
-		/// </summary>
-		public static async Task<GameObject> InstantiatePrefabAsync(string path)
-		{
-			var operation = Addressables.InstantiateAsync(path);
+			var operation = Addressables.LoadSceneAsync(path, loadMode, activateOnLoad);
 
 			await operation.Task;
 
@@ -87,7 +71,61 @@ namespace GameLovers.AssetLoader
 		}
 
 		/// <summary>
-		/// Unloads the given <paramref name="asset"/> from the game memory
+		/// Unloads the given <paramref name="scene"/> from the game memory.
+		/// This method can be controlled in an async method
+		/// </summary>
+		public static async Task UnloadSceneAsync(SceneInstance scene)
+		{
+			var operation = Addressables.UnloadSceneAsync(scene);
+
+			await operation.Task;
+
+			if (operation.Status != AsyncOperationStatus.Succeeded)
+			{
+				throw operation.OperationException;
+			}
+		}
+
+		/// <summary>
+		/// Loads any asset of the given <typeparamref name="T"/> in the given <paramref name="path"/>.
+		/// To help the execution of this method is recommended to request the asset path from an <seealso cref="AddressableConfig"/>.
+		/// This method can be controlled in an async method and returns the asset loaded
+		/// </summary>
+		public static async Task<T> LoadAssetAsync<T>(string path)
+		{
+			var operation = Addressables.LoadAssetAsync<T>(path);
+
+			await operation.Task;
+
+			if (operation.Status != AsyncOperationStatus.Succeeded)
+			{
+				throw operation.OperationException;
+			}
+			
+			return operation.Result;
+		}
+
+		/// <summary>
+		/// Loads and instantiates the prefab in the given <paramref name="path"/> with the given <paramref name="instantiateParameters"/>.
+		/// To help the execution of this method is recommended to request the asset path from an <seealso cref="AddressableConfig"/>.
+		/// This method can be controlled in an async method and returns the prefab instantiated
+		/// </summary>
+		public static async Task<GameObject> InstantiatePrefabAsync(string path, InstantiationParameters instantiateParameters = new InstantiationParameters())
+		{
+			var operation = Addressables.InstantiateAsync(path, instantiateParameters);
+
+			await operation.Task;
+
+			if (operation.Status != AsyncOperationStatus.Succeeded)
+			{
+				throw operation.OperationException;
+			}
+			
+			return operation.Result;
+		}
+
+		/// <summary>
+		/// Unloads the given <paramref name="asset"/> from the game memory.
 		/// If <typeparamref name="T"/> is of <seealso cref="GameObject"/> type, then will also destroy it
 		/// </summary>
 		public static void UnloadAsset<T>(T asset)
