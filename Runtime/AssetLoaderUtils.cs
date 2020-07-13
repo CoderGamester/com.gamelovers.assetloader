@@ -16,7 +16,7 @@ namespace GameLovers.AssetLoader
 	/// <summary>
 	/// Helper class with util improvements for loading methods
 	/// </summary>
-	public static class AssetLoaderService
+	public static class AssetLoaderUtils
 	{
 		/// <summary>
 		/// Helper method to interpolate over a list of the given <paramref name="tasks"/>.
@@ -86,11 +86,7 @@ namespace GameLovers.AssetLoader
 			}
 		}
 
-		/// <summary>
-		/// Loads any asset of the given <typeparamref name="T"/> in the given <paramref name="path"/>.
-		/// To help the execution of this method is recommended to request the asset path from an <seealso cref="AddressableConfig"/>.
-		/// This method can be controlled in an async method and returns the asset loaded
-		/// </summary>
+		/// <inheritdoc cref="IAssetLoader.LoadAssetAsync{T}"/>
 		public static async Task<T> LoadAssetAsync<T>(string path)
 		{
 			var operation = Addressables.LoadAssetAsync<T>(path);
@@ -105,11 +101,7 @@ namespace GameLovers.AssetLoader
 			return operation.Result;
 		}
 
-		/// <summary>
-		/// Loads and instantiates the prefab in the given <paramref name="path"/> with the given <paramref name="instantiateParameters"/>.
-		/// To help the execution of this method is recommended to request the asset path from an <seealso cref="AddressableConfig"/>.
-		/// This method can be controlled in an async method and returns the prefab instantiated
-		/// </summary>
+		/// <inheritdoc cref="IAssetLoader.InstantiatePrefabAsync"/>
 		public static async Task<GameObject> InstantiatePrefabAsync(string path, InstantiationParameters instantiateParameters = new InstantiationParameters())
 		{
 			var operation = Addressables.InstantiateAsync(path, instantiateParameters);
@@ -123,11 +115,8 @@ namespace GameLovers.AssetLoader
 			
 			return operation.Result;
 		}
-
-		/// <summary>
-		/// Unloads the given <paramref name="asset"/> from the game memory.
-		/// If <typeparamref name="T"/> is of <seealso cref="GameObject"/> type, then will also destroy it
-		/// </summary>
+		
+		/// <inheritdoc cref="IAssetLoader.UnloadAsset{T}"/>
 		public static void UnloadAsset<T>(T asset)
 		{
 			Addressables.Release(asset);
