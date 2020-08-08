@@ -6,269 +6,274 @@ using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 
-/// <summary>
-/// Generates the Addressable Ids into a script file
-/// </summary>
-public static class AddressableIdsGenerator
+// ReSharper disable once CheckNamespace
+
+namespace GameLoversEditor.AssetLoader
 {
-	private const string _objectName = "AddressableId";
-	
-	[MenuItem("Tools/Generate AddressableIds")]
-	private static void GenerateAddressableIds()
+	/// <summary>
+	/// Generates the Addressable Ids into a script file
+	/// </summary>
+	public static class AddressableIdsGenerator
 	{
-		var assetList = GetAssetList();
-		var script = GenerateScript(assetList);
+		private const string _objectName = "AddressableId";
 		
-		SaveScript(script);
-
-		AssetDatabase.Refresh();
-	}
-	
-	private static List<AddressableAssetEntry> GetAssetList()
-	{
-		var assetList = new List<AddressableAssetEntry>();
-		var assetsSettings = AddressableAssetSettingsDefaultObject.Settings;
-		
-		foreach (var settingsGroup in assetsSettings.groups)
+		[MenuItem("Tools/Generate AddressableIds")]
+		private static void GenerateAddressableIds()
 		{
-			if (settingsGroup.ReadOnly)
-			{
-				continue;
-			}
+			var assetList = GetAssetList();
+			var script = GenerateScript(assetList);
 			
-			settingsGroup.GatherAllAssets(assetList, true, true, true);
-		}
+			SaveScript(script);
 
-		return assetList;
-	}
-
-	private static void SaveScript(string scriptString)
-	{
-		var scriptAssets = AssetDatabase.FindAssets($"t:Script {_objectName}");
-		var scriptPath = $"Assets/{_objectName}.cs";
-
-		foreach (var scriptAsset in scriptAssets)
-		{
-			var path = AssetDatabase.GUIDToAssetPath(scriptAsset);
-			if (path.EndsWith($"/{_objectName}.cs"))
-			{
-				scriptPath = path;
-				break;
-			}
-		}
-
-		File.WriteAllText(scriptPath, scriptString);
-	}
-
-	private static string GenerateScript(IReadOnlyList<AddressableAssetEntry> assetList)
-	{
-		var stringBuilder = new StringBuilder();
-		var labelMap = new Dictionary<string, IList<AddressableAssetEntry>>();
-		var paths = new List<string>();
-
-		ProcessData(assetList, labelMap, paths);
-		
-		stringBuilder.AppendLine("/* AUTO GENERATED CODE */");
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine("using System.Collections.Generic;");
-		stringBuilder.AppendLine("using System.Collections.ObjectModel;");
-		stringBuilder.AppendLine("using GameLovers.AssetLoader;");
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine("// ReSharper disable InconsistentNaming");
-		stringBuilder.AppendLine("// ReSharper disable once CheckNamespace");
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine("namespace Ids");
-		stringBuilder.AppendLine("{");
-		
-		stringBuilder.AppendLine($"\tpublic enum {_objectName}");
-		stringBuilder.AppendLine("\t{");
-		GenerateAddressEnums(stringBuilder, assetList);
-		stringBuilder.AppendLine("\t}");
-		
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine("\tpublic enum AddressableLabel");
-		stringBuilder.AppendLine("\t{");
-		GenerateLabelEnums(stringBuilder, new List<string>(labelMap.Keys));
-		stringBuilder.AppendLine("\t}");
-		
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine("\tpublic static class AddressablePathLookup");
-		stringBuilder.AppendLine("\t{");
-		GeneratePaths(stringBuilder, paths);
-		stringBuilder.AppendLine("\t}");
-		
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine("\tpublic static class AddressableConfigLookup");
-		stringBuilder.AppendLine("\t{");
-		GenerateLoopUpMethods(stringBuilder);
-		GenerateLabelMap(stringBuilder, labelMap);
-		GenerateConfigs(stringBuilder, assetList);
-		stringBuilder.AppendLine("\t}");
-		
-		stringBuilder.AppendLine("}");
-
-		return stringBuilder.ToString();
-	}
-
-	private static void GenerateLoopUpMethods(StringBuilder stringBuilder)
-	{
-		stringBuilder.AppendLine($"\t\tpublic static IList<{nameof(AddressableConfig)}> Configs => _addressableConfigs;");
-		stringBuilder.AppendLine($"\t\tpublic static IList<string> Labels => _addressableLabels;");
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine($"\t\tpublic static {nameof(AddressableConfig)} GetConfig(this {_objectName} addressable)");
-		stringBuilder.AppendLine("\t\t{");
-		stringBuilder.AppendLine("\t\t\treturn _addressableConfigs[(int) addressable];");
-		stringBuilder.AppendLine("\t\t}");
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine($"\t\tpublic static IList<{nameof(AddressableConfig)}> GetConfigs(this AddressableLabel label)");
-		stringBuilder.AppendLine("\t\t{");
-		stringBuilder.AppendLine("\t\t\treturn _addressableLabelMap[_addressableLabels[(int) label]];");
-		stringBuilder.AppendLine("\t\t}");
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine($"\t\tpublic static IList<{nameof(AddressableConfig)}> GetConfigs(string label)");
-		stringBuilder.AppendLine("\t\t{");
-		stringBuilder.AppendLine("\t\t\treturn _addressableLabelMap[label];");
-		stringBuilder.AppendLine("\t\t}");
-	}
-
-	private static void GenerateLabelMap(StringBuilder stringBuilder, IDictionary<string, IList<AddressableAssetEntry>> assetLabelMap)
-	{
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine("\t\tprivate static readonly IList<string> _addressableLabels = new List<string>");
-		stringBuilder.AppendLine("\t\t{");
-
-		if (assetLabelMap.Count > 0)
-		{
-			stringBuilder.AppendLine($"\t\t\t{GenerateLabels(new List<string>(assetLabelMap.Keys))}");
+			AssetDatabase.Refresh();
 		}
 		
-		stringBuilder.AppendLine("\t\t}.AsReadOnly();");
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine($"\t\tprivate static readonly IReadOnlyDictionary<string, IList<{nameof(AddressableConfig)}>> _addressableLabelMap = new ReadOnlyDictionary<string, IList<{nameof(AddressableConfig)}>>(new Dictionary<string, IList<{nameof(AddressableConfig)}>>");
-		stringBuilder.AppendLine("\t\t{");
-
-		foreach (var labelMap in assetLabelMap)
+		private static List<AddressableAssetEntry> GetAssetList()
 		{
-			stringBuilder.AppendLine($"\t\t\t{{\"{labelMap.Key}\", new List<{nameof(AddressableConfig)}>");
-			stringBuilder.AppendLine("\t\t\t\t{");
+			var assetList = new List<AddressableAssetEntry>();
+			var assetsSettings = AddressableAssetSettingsDefaultObject.Settings;
 			
-			for (var i = 0; i < labelMap.Value.Count; i++)
+			foreach (var settingsGroup in assetsSettings.groups)
 			{
-				stringBuilder.AppendLine($"\t\t\t\t\t{GenerateAddressableConfig(labelMap.Value[i], i)},");
-			}
-
-			stringBuilder.AppendLine("\t\t\t\t}.AsReadOnly()}");
-		}
-
-		stringBuilder.AppendLine("\t\t});");
-	}
-
-	private static void GeneratePaths(StringBuilder stringBuilder, IList<string> paths)
-	{
-		for (var i = 0; i < paths.Count; i++)
-		{
-			stringBuilder.AppendLine($"\t\tpublic static readonly string {GetCleanName(paths[i], false)} = \"{paths[i]}\";");
-		}
-	}
-
-	private static void GenerateConfigs(StringBuilder stringBuilder, IReadOnlyList<AddressableAssetEntry> assetList)
-	{
-		stringBuilder.AppendLine("");
-		stringBuilder.AppendLine($"\t\tprivate static readonly IList<{nameof(AddressableConfig)}> _addressableConfigs = new List<{nameof(AddressableConfig)}>");
-		stringBuilder.AppendLine("\t\t{");
-
-		for (var i = 0; i < assetList.Count; i++)
-		{
-			stringBuilder.Append($"\t\t\t{GenerateAddressableConfig(assetList[i], i)}");
-			stringBuilder.Append(i + 1 == assetList.Count ? "\n" : ",\n");
-		}
-
-		stringBuilder.AppendLine("\t\t}.AsReadOnly();");
-	}
-
-	private static string GenerateLabels(IList<string> labels)
-	{
-		var stringBuilder = new StringBuilder();
-		
-		if (labels.Count == 0)
-		{
-			stringBuilder.Append("\"\"");
-		}
-		
-		for (var i = 0; i < labels.Count; i++)
-		{
-			stringBuilder.Append($"\"{labels[i]}\"");
-			stringBuilder.Append(i + 1 == labels.Count ? "" : ",");
-		}
-
-		return stringBuilder.ToString();
-	}
-
-	private static string GenerateAddressableConfig(AddressableAssetEntry addressableAssetEntry, int index)
-	{
-		var asseType = AssetDatabase.GetMainAssetTypeAtPath(addressableAssetEntry.AssetPath);
-
-		asseType = asseType == typeof(UnityEditor.SceneAsset) ? typeof(UnityEngine.SceneManagement.Scene) : asseType;
-		
-		return $"new {nameof(AddressableConfig)}({index.ToString()}, \"{addressableAssetEntry.address}\", \"{addressableAssetEntry.AssetPath}\", " +
-		       $"typeof({asseType}), new [] {{{GenerateLabels(new List<string>(addressableAssetEntry.labels))}}})";
-	}
-
-	private static void ProcessData(IReadOnlyList<AddressableAssetEntry> assetList,
-		IDictionary<string, IList<AddressableAssetEntry>> labelMap, ICollection<string> paths)
-	{
-		for (var i = 0; i < assetList.Count; i++)
-		{
-			var path = assetList[i].address.Substring(0, assetList[i].address.Replace('\\','/').LastIndexOf('/'));
-
-			if (!paths.Contains(path))
-			{
-				paths.Add(path);
-			}
-
-			foreach (var label in assetList[i].labels)
-			{
-				if (!labelMap.TryGetValue(label, out var list))
+				if (settingsGroup.ReadOnly)
 				{
-					list = new List<AddressableAssetEntry>();
-					labelMap.Add(label, list);
+					continue;
 				}
 				
-				list.Add(assetList[i]);
+				settingsGroup.GatherAllAssets(assetList, true, true, true);
+			}
+
+			return assetList;
+		}
+
+		private static void SaveScript(string scriptString)
+		{
+			var scriptAssets = AssetDatabase.FindAssets($"t:Script {_objectName}");
+			var scriptPath = $"Assets/{_objectName}.cs";
+
+			foreach (var scriptAsset in scriptAssets)
+			{
+				var path = AssetDatabase.GUIDToAssetPath(scriptAsset);
+				if (path.EndsWith($"/{_objectName}.cs"))
+				{
+					scriptPath = path;
+					break;
+				}
+			}
+
+			File.WriteAllText(scriptPath, scriptString);
+		}
+
+		private static string GenerateScript(IReadOnlyList<AddressableAssetEntry> assetList)
+		{
+			var stringBuilder = new StringBuilder();
+			var labelMap = new Dictionary<string, IList<AddressableAssetEntry>>();
+			var paths = new List<string>();
+
+			ProcessData(assetList, labelMap, paths);
+			
+			stringBuilder.AppendLine("/* AUTO GENERATED CODE */");
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine("using System.Collections.Generic;");
+			stringBuilder.AppendLine("using System.Collections.ObjectModel;");
+			stringBuilder.AppendLine("using GameLovers.AssetLoader;");
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine("// ReSharper disable InconsistentNaming");
+			stringBuilder.AppendLine("// ReSharper disable once CheckNamespace");
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine("namespace Ids");
+			stringBuilder.AppendLine("{");
+			
+			stringBuilder.AppendLine($"\tpublic enum {_objectName}");
+			stringBuilder.AppendLine("\t{");
+			GenerateAddressEnums(stringBuilder, assetList);
+			stringBuilder.AppendLine("\t}");
+			
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine("\tpublic enum AddressableLabel");
+			stringBuilder.AppendLine("\t{");
+			GenerateLabelEnums(stringBuilder, new List<string>(labelMap.Keys));
+			stringBuilder.AppendLine("\t}");
+			
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine("\tpublic static class AddressablePathLookup");
+			stringBuilder.AppendLine("\t{");
+			GeneratePaths(stringBuilder, paths);
+			stringBuilder.AppendLine("\t}");
+			
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine("\tpublic static class AddressableConfigLookup");
+			stringBuilder.AppendLine("\t{");
+			GenerateLoopUpMethods(stringBuilder);
+			GenerateLabelMap(stringBuilder, labelMap);
+			GenerateConfigs(stringBuilder, assetList);
+			stringBuilder.AppendLine("\t}");
+			
+			stringBuilder.AppendLine("}");
+
+			return stringBuilder.ToString();
+		}
+
+		private static void GenerateLoopUpMethods(StringBuilder stringBuilder)
+		{
+			stringBuilder.AppendLine($"\t\tpublic static IList<{nameof(AddressableConfig)}> Configs => _addressableConfigs;");
+			stringBuilder.AppendLine($"\t\tpublic static IList<string> Labels => _addressableLabels;");
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine($"\t\tpublic static {nameof(AddressableConfig)} GetConfig(this {_objectName} addressable)");
+			stringBuilder.AppendLine("\t\t{");
+			stringBuilder.AppendLine("\t\t\treturn _addressableConfigs[(int) addressable];");
+			stringBuilder.AppendLine("\t\t}");
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine($"\t\tpublic static IList<{nameof(AddressableConfig)}> GetConfigs(this AddressableLabel label)");
+			stringBuilder.AppendLine("\t\t{");
+			stringBuilder.AppendLine("\t\t\treturn _addressableLabelMap[_addressableLabels[(int) label]];");
+			stringBuilder.AppendLine("\t\t}");
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine($"\t\tpublic static IList<{nameof(AddressableConfig)}> GetConfigs(string label)");
+			stringBuilder.AppendLine("\t\t{");
+			stringBuilder.AppendLine("\t\t\treturn _addressableLabelMap[label];");
+			stringBuilder.AppendLine("\t\t}");
+		}
+
+		private static void GenerateLabelMap(StringBuilder stringBuilder, IDictionary<string, IList<AddressableAssetEntry>> assetLabelMap)
+		{
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine("\t\tprivate static readonly IList<string> _addressableLabels = new List<string>");
+			stringBuilder.AppendLine("\t\t{");
+
+			if (assetLabelMap.Count > 0)
+			{
+				stringBuilder.AppendLine($"\t\t\t{GenerateLabels(new List<string>(assetLabelMap.Keys))}");
+			}
+			
+			stringBuilder.AppendLine("\t\t}.AsReadOnly();");
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine($"\t\tprivate static readonly IReadOnlyDictionary<string, IList<{nameof(AddressableConfig)}>> _addressableLabelMap = new ReadOnlyDictionary<string, IList<{nameof(AddressableConfig)}>>(new Dictionary<string, IList<{nameof(AddressableConfig)}>>");
+			stringBuilder.AppendLine("\t\t{");
+
+			foreach (var labelMap in assetLabelMap)
+			{
+				stringBuilder.AppendLine($"\t\t\t{{\"{labelMap.Key}\", new List<{nameof(AddressableConfig)}>");
+				stringBuilder.AppendLine("\t\t\t\t{");
+				
+				for (var i = 0; i < labelMap.Value.Count; i++)
+				{
+					stringBuilder.AppendLine($"\t\t\t\t\t{GenerateAddressableConfig(labelMap.Value[i], i)},");
+				}
+
+				stringBuilder.AppendLine("\t\t\t\t}.AsReadOnly()}");
+			}
+
+			stringBuilder.AppendLine("\t\t});");
+		}
+
+		private static void GeneratePaths(StringBuilder stringBuilder, IList<string> paths)
+		{
+			for (var i = 0; i < paths.Count; i++)
+			{
+				stringBuilder.AppendLine($"\t\tpublic static readonly string {GetCleanName(paths[i], false)} = \"{paths[i]}\";");
 			}
 		}
-	}
 
-	private static void GenerateAddressEnums(StringBuilder stringBuilder, IReadOnlyList<AddressableAssetEntry> assetList)
-	{
-		for (var i = 0; i < assetList.Count; i++)
+		private static void GenerateConfigs(StringBuilder stringBuilder, IReadOnlyList<AddressableAssetEntry> assetList)
 		{
-			stringBuilder.Append("\t\t");
-			stringBuilder.Append(GetCleanName(assetList[i].address, true));
-			stringBuilder.Append(i + 1 == assetList.Count ? "\n" : ",\n");
-		}
-	}
+			stringBuilder.AppendLine("");
+			stringBuilder.AppendLine($"\t\tprivate static readonly IList<{nameof(AddressableConfig)}> _addressableConfigs = new List<{nameof(AddressableConfig)}>");
+			stringBuilder.AppendLine("\t\t{");
 
-	private static void GenerateLabelEnums(StringBuilder stringBuilder, IList<string> labels)
-	{
-		for (var i = 0; i < labels.Count; i++)
-		{
-			stringBuilder.Append("\t\tLabel_");
-			stringBuilder.Append(GetCleanName(labels[i], true));
-			stringBuilder.Append(i + 1 == labels.Count ? "\n" : ",\n");
+			for (var i = 0; i < assetList.Count; i++)
+			{
+				stringBuilder.Append($"\t\t\t{GenerateAddressableConfig(assetList[i], i)}");
+				stringBuilder.Append(i + 1 == assetList.Count ? "\n" : ",\n");
+			}
+
+			stringBuilder.AppendLine("\t\t}.AsReadOnly();");
 		}
-	}
-	
-	private static string GetCleanName(string name, bool withUnderscore)
-	{
-		var index = name.LastIndexOf('.');
-		var charReplace = withUnderscore ? "_" : "";
+
+		private static string GenerateLabels(IList<string> labels)
+		{
+			var stringBuilder = new StringBuilder();
+			
+			if (labels.Count == 0)
+			{
+				stringBuilder.Append("\"\"");
+			}
+			
+			for (var i = 0; i < labels.Count; i++)
+			{
+				stringBuilder.Append($"\"{labels[i]}\"");
+				stringBuilder.Append(i + 1 == labels.Count ? "" : ",");
+			}
+
+			return stringBuilder.ToString();
+		}
+
+		private static string GenerateAddressableConfig(AddressableAssetEntry addressableAssetEntry, int index)
+		{
+			var asseType = AssetDatabase.GetMainAssetTypeAtPath(addressableAssetEntry.AssetPath);
+
+			asseType = asseType == typeof(UnityEditor.SceneAsset) ? typeof(UnityEngine.SceneManagement.Scene) : asseType;
+			
+			return $"new {nameof(AddressableConfig)}({index.ToString()}, \"{addressableAssetEntry.address}\", \"{addressableAssetEntry.AssetPath}\", " +
+			       $"typeof({asseType}), new [] {{{GenerateLabels(new List<string>(addressableAssetEntry.labels))}}})";
+		}
+
+		private static void ProcessData(IReadOnlyList<AddressableAssetEntry> assetList,
+			IDictionary<string, IList<AddressableAssetEntry>> labelMap, ICollection<string> paths)
+		{
+			for (var i = 0; i < assetList.Count; i++)
+			{
+				var path = assetList[i].address.Substring(0, assetList[i].address.Replace('\\','/').LastIndexOf('/'));
+
+				if (!paths.Contains(path))
+				{
+					paths.Add(path);
+				}
+
+				foreach (var label in assetList[i].labels)
+				{
+					if (!labelMap.TryGetValue(label, out var list))
+					{
+						list = new List<AddressableAssetEntry>();
+						labelMap.Add(label, list);
+					}
+					
+					list.Add(assetList[i]);
+				}
+			}
+		}
+
+		private static void GenerateAddressEnums(StringBuilder stringBuilder, IReadOnlyList<AddressableAssetEntry> assetList)
+		{
+			for (var i = 0; i < assetList.Count; i++)
+			{
+				stringBuilder.Append("\t\t");
+				stringBuilder.Append(GetCleanName(assetList[i].address, true));
+				stringBuilder.Append(i + 1 == assetList.Count ? "\n" : ",\n");
+			}
+		}
+
+		private static void GenerateLabelEnums(StringBuilder stringBuilder, IList<string> labels)
+		{
+			for (var i = 0; i < labels.Count; i++)
+			{
+				stringBuilder.Append("\t\tLabel_");
+				stringBuilder.Append(GetCleanName(labels[i], true));
+				stringBuilder.Append(i + 1 == labels.Count ? "\n" : ",\n");
+			}
+		}
 		
-		name = index < 0 ? name : name.Substring(0, index);
-		name = name.Replace("/", charReplace);
-		name = name.Replace("\\", charReplace);
-		name = name.Replace(" ", charReplace);
+		private static string GetCleanName(string name, bool withUnderscore)
+		{
+			var index = name.LastIndexOf('.');
+			var charReplace = withUnderscore ? "_" : "";
+			
+			name = index < 0 ? name : name.Substring(0, index);
+			name = name.Replace("/", charReplace);
+			name = name.Replace("\\", charReplace);
+			name = name.Replace(" ", charReplace);
 
-		return name;
+			return name;
+		}
 	}
 }

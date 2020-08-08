@@ -6,11 +6,7 @@
   "description": "This package extends the loading functionality of assets from Unity Addressables with the possibility to generate new info about each asset addressable.\n\nThe asset info generator can be executed in Tools > Generate AddressableIds",
   "type": "library",
   "hideInEditor": false,
-  "samples": [
-    {
-      "displayName": "Addressables Loader",
-      "description": "Package implementation when using in combination with Addressables packages",
-      "path": "Samples~/AddressablesLoader"
-    }
-  ]
+  "dependencies": {
+    "com.unity.addressables": "1.8.4"
+  }
 }
