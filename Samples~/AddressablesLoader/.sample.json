@@ -1,5 +1,0 @@
-{
-  "displayName": "Addressables Loader",
-  "description": "Package implementation when using in combination with Addressables packages",
-  "createSeparatePackage": true
-}
