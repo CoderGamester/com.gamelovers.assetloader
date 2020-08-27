@@ -223,7 +223,9 @@ namespace GameLoversEditor.AssetLoader
 		{
 			for (var i = 0; i < assetList.Count; i++)
 			{
-				var path = assetList[i].address.Substring(0, assetList[i].address.Replace('\\','/').LastIndexOf('/'));
+				var address = assetList[i].address;
+				var pathLastCharIndex = address.Replace('\\', '/').LastIndexOf('/');
+				var path = pathLastCharIndex < 0 ? address : address.Substring(0,  pathLastCharIndex);
 
 				if (!paths.Contains(path))
 				{
